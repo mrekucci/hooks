@@ -2,5 +2,13 @@
 * text=auto
 
 # Explicitly declare text files we want to always be normalized and converted to native line endings on checkout.
-*.sh text
+*.pre-commit text
+*.pre-push text
+*.pre-rebase text
+*.pre-applypatch text
+*.applypatch-msg text
+*.prepare-commit-msg text
+*.commit-msg text
+*.update text
+*.post-update text
 *.md text
