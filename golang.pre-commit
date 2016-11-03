@@ -59,18 +59,18 @@ check () {
 }
 
 # Check if there are any files to examine.
-if [ -z $(git diff --cached --name-only $TREE) ]; then
+if [ -z $(git diff --cached --name-only --diff-filter=d $TREE) ]; then
     exit $EXIT_CODE
 fi
 
 printf "${INFO} Checking that all filenames are in ASCII ... "
-check $(git diff --cached --name-only -z $TREE | LC_ALL=C tr -d '[ -~]\0' | wc -c) 0
+check $(git diff --cached --name-only --diff-filter=d -z $TREE | LC_ALL=C tr -d '[ -~]\0' | wc -c) 0
 
 printf "${INFO} Checking for no trailing whitespaces ... "
-check $(git diff-index --check --cached $TREE -- &> /dev/null) ""
+check $(git diff-index --check --cached --diff-filter=d $TREE -- &> /dev/null) ""
 
 # Check if there are any .go files to examine.
-GO_FILES=$(git diff --cached --name-only $TREE | grep '.go$')
+GO_FILES=$(git diff --cached --name-only --diff-filter=d $TREE | grep '.go$')
 if [ -z "${GO_FILES}" ]; then
     exit $EXIT_CODE
 fi
