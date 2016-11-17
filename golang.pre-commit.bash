@@ -37,7 +37,7 @@ exit_code=0
 
 # An git tree to check, default is an empty tree.
 tree=$(git hash-object -t tree /dev/null)
-if git rev-parse --verify HEAD &> /dev/null; then
+if git rev-parse --verify HEAD &>/dev/null; then
     tree=HEAD
 fi
 
@@ -77,11 +77,11 @@ if [ -z "$(git diff --cached --name-only --diff-filter=d $tree)" ]; then
 fi
 
 info "Checking that filenames are in ASCII ... "
-git diff --cached --name-only --diff-filter=d -z $tree | LC_ALL=C tr -d '[ -~]\0' | wc -c &> /dev/null
+git diff --cached --name-only --diff-filter=d -z $tree | LC_ALL=C tr -d '[ -~]\0' | wc -c &>/dev/null
 check $? 0
 
 info "Checking for no trailing whitespaces ... "
-git diff-index --check --cached --diff-filter=d $tree -- &> /dev/null
+git diff-index --check --cached --diff-filter=d $tree -- &>/dev/null
 check $? 0
 
 # Check if there are any .go files to examine.
@@ -91,13 +91,13 @@ if [ -z "${go_files}" ]; then
 fi
 
 info "Checking for gofmt ... "
-command -v gofmt &> /dev/null
+command -v gofmt &>/dev/null
 check $? 0 true
 
-info "Checking that syntax is valid ... "
-errors=$( { gofmt -e "$go_files"; } 2>&1 )
+info "Checking valid syntax ... "
+errors=$( (gofmt -e "$go_files" 1>/dev/null) 2>&1 )
 if ! check $? 0; then
-    error "Fix the following syntax errors:\n${errors}\n"
+    error "Fix the following errors:\n${errors}\n"
     exit $exit_code
 fi
 
@@ -111,21 +111,21 @@ if ! check "$unformatted" ""; then
 fi
 
 info "Checking for go vet ... "
-command -v go &> /dev/null
+command -v go &>/dev/null
 check $? 0 true
 
 info "Vetting ... "
-readonly unvetted=$( { go tool vet "$go_files"; } 2>&1 )
+readonly unvetted=$( (go tool vet "$go_files" 1>/dev/null) 2>&1 )
 if ! check "$unvetted" ""; then
     error "Fix the following vet issues:\n${unvetted}\n"
 fi
 
 info "Checking for golint ... "
-command -v golint &> /dev/null
+command -v golint &>/dev/null
 check $? 0 true
 
 info "Lintering ... "
-readonly unlintered=$( { golint "$go_files"; } 2>&1 )
+readonly unlintered=$( (golint "$go_files" 1>/dev/null) 2>&1 )
 if ! check "$unlintered" ""; then
     error "Fix the following lint issues:\n${unlintered}\n"
 fi
