@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2016, Peter Mrekaj. All Rights Reserved.
+# Licensed under the MIT License, <LICENSE or http://opensource.org/licenses/MIT>.
+# This file may not be copied, modified, or distributed except according to those terms.
+#
+# Pre-commit hook for GIT repositories that contain Golang source code.
+# To use this hook, copy this file to the .git/hooks in your repository root,
+# rename it to "pre-commit", and grant it an execution permission.
+#
+# This pre-commit hook checks the following on files prepared for commit:
+# - all files are trailing whitespace free
+# - all file names are in ASCII
+# - all .go files have valid syntax
+# - all .go files are formatted
+# - all .go files are free from vet issues
+# - all .go files are free from lint issues
+#
+# Use `git commit` with `--no-verify` flag to skip the pre-commit hook.
+
+EXIT_CODE=0
+
+# Check if all needed commands are available.
+readonly COMMANDS="tput head grep tr wc git go gofmt golint"
+for cmd in ${COMMANDS}; do
+  if ! command -v "${cmd}" > /dev/null 2>&1; then
+    printf "Command not found in PATH: %s\n" "${cmd}" >&2
+    EXIT_CODE=1
+  fi
+done
+[[ "${EXIT_CODE}" -gt 0 ]] && exit "${EXIT_CODE}"
+
+# Colors and styles definition.
+readonly RED="$(tput setaf 1)"
+readonly GREEN="$(tput setaf 2)"
+readonly NONE="$(tput sgr0)"
+readonly BOLD="$(tput bold)"
+
+# A git tree which will be examine (default is an empty tree).
+if git rev-parse --verify HEAD &>/dev/null; then
+    readonly TREE=HEAD
+else
+    readonly TREE="$(git hash-object -t tree /dev/null)"
+fi
+
+# Files that will be examine.
+readonly FILES="$(git diff --cached --name-only -z --diff-filter=d "${TREE}" | LC_ALL=C tr '\0' '\n')"
+[[ -z "${FILES}" ]] && exit "${EXIT_CODE}"
+
+# Prints given string with prefix into the stdout.
+function print() {
+    printf "%sPRECOMMIT:%s %-40b" "${BOLD}" "${NONE}" "$1"
+}
+
+# Function appends $2 to $1 delimited by new line if $2 is not empty, otherwise
+# $1 is returned. If $1 is empty, then $2 will be returned.
+function append() {
+    local errors="$1"
+    local err="$2"
+    if [[ -z "${errors}" ]]; then
+        printf "%s" "${err}"
+    elif [[ -z "${err}" ]]; then
+        printf "%s" "${errors}"
+    else
+        printf "%s\n%s" "${errors}" "${err}"
+    fi
+}
+
+# The function checks the following:
+# If $1 is empty, then print success status and return 0.
+# If $1 is not empty, then print failed status including $2 and set the global
+# variable EXIT_CODE to 1 (also if $3 is set to true, then the function will exit
+# with exit code 1).
+function check() {
+    local errors="$1"
+    local err_msg="$2"
+    local exit_on_err="${3:-false}"
+    if [[ -z "${errors}" ]]; then
+        printf " [ %sOK%s ] \n" "${GREEN}" "${NONE}"
+    else
+        printf " [ %sFAILED%s ] \n%b:\n%b\n" "${RED}" "${NONE}" "${err_msg}" "${errors}" >&2
+        EXIT_CODE=1
+        [[ "${exit_on_err}" == true ]] && exit "${EXIT_CODE}"
+    fi
+}
+
+function main() {
+    local errors
+
+    print "Checking for no trailing whitespaces ..."
+    check "$(git diff-index --check --cached --diff-filter=d "${TREE}")" "Issues found"
+
+    print "Checking that filenames are in ASCII ..."
+    unset errors
+    for file in ${FILES}; do
+        [[ "$(printf "%s" "${file}" | LC_ALL=C tr -d '[ -~]\0' | wc -c)" -ne 0 ]] && errors="${errors}${file}\n"
+    done
+    check "${errors%??}" "Non ASCII named files found"
+
+    # .go files that will be examine.
+    local -r go_files="$(printf "%s" "${FILES}" | grep '.go$')"
+    [[ -z "${go_files}" ]] && exit "${EXIT_CODE}"
+
+    print "Checking valid syntax ..."
+    unset errors
+    for file in ${go_files}; do
+        errors="$(append "${errors}" "$( (gofmt -e "${file}" 1>/dev/null) 2>&1 )")"
+    done
+    check "${errors}" "Invalid syntax in the following files" true
+
+    print "Checking formatting ..."
+    unset errors
+    for file in ${go_files}; do
+        errors="$(append "${errors}" "$(gofmt -l "${file}" 2>&1)")"
+    done
+    check "${errors}" "Unformatted files found"
+
+    print "Checking vetting ..."
+    unset errors
+    for file in ${go_files}; do
+        errors="$(append "${errors}" "$(go vet "${file}" 2>&1 | grep -v -F "exit status 1")")"
+    done
+    check "${errors}" "Issues found"
+
+    print "Checking lintering ..."
+    unset errors
+    for file in ${go_files}; do
+        errors="$(append "${errors}" "$(golint "${file}" 2>&1)")"
+    done
+    check "${errors}" "Issues found"
+
+    exit "${EXIT_CODE}"
+}
+
+main
