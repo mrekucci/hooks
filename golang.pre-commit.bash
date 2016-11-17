@@ -41,14 +41,14 @@ if git rev-parse --verify HEAD &>/dev/null; then
     tree=HEAD
 fi
 
-# Print given string with ${info} prefix into the stdout.
+# Print given string with $info prefix into the stdout.
 function info {
-    printf "%s $1" "${info}"
+    printf "%s $1" "$info"
 }
 
-# Print given string with ${info} prefix into the stderr.
+# Print given string with $info prefix into the stderr.
 function error {
-     printf "%s $1" "${info}" >&2
+     printf "%s $1" "$info" >&2
 }
 
 # Check if $1 == $2, then print the check result and return 0.
@@ -60,10 +60,10 @@ function check {
     local _want=$2
     local _exit_on_failure=${3:-false}
     if [ "$_got" == "$_want" ]; then
-        printf "%s\n" "${success}"
+        printf "%s\n" "$success"
         return 0
     fi
-    printf "%s\n" "${failure}"
+    printf "%s\n" "$failure"
     exit_code=1
     if [ "$_exit_on_failure" == true ]; then
         exit $exit_code
@@ -86,7 +86,7 @@ check $? 0
 
 # Check if there are any .go files to examine.
 readonly go_files=$(git diff --cached --name-only --diff-filter=d $tree | grep '.go$')
-if [ -z "${go_files}" ]; then
+if [ -z "$go_files" ]; then
     exit $exit_code
 fi
 
