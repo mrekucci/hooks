@@ -49,7 +49,7 @@ readonly FILES="$(git diff --cached --name-only -z --diff-filter=d "${TREE}" | L
 
 # Prints given string with prefix into the stdout.
 function print() {
-    printf "%sPRECOMMIT:%s %-40b" "${BOLD}" "${NONE}" "$1"
+    printf "%sPRECOMMIT:%s %-43b" "${BOLD}" "${NONE}" "$1"
 }
 
 # Function appends $2 to $1 delimited by new line if $2 is not empty, otherwise
@@ -108,12 +108,12 @@ function main() {
     done
     check "${errors}" "Invalid syntax in the following files" true
 
-    print "Checking formatting ..."
+    print "Checking formatting and simplifications ..."
     unset errors
     for file in ${go_files}; do
-        errors="$(append "${errors}" "$(gofmt -l "${file}" 2>&1)")"
+        errors="$(append "${errors}" "$(gofmt -s -l "${file}" 2>&1)")"
     done
-    check "${errors}" "Unformatted files found"
+    check "${errors}" "Unformatted and/or non-simplified files found"
 
     print "Checking vetting ..."
     unset errors
